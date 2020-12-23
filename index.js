@@ -1,7 +1,6 @@
 const fs = require('fs');
 const Discord = require('discord.js');
 const config = require('./config.json');
-const querystring = require('querystring');
 
 global.Headers = global.Headers || require("fetch-headers");
 
@@ -17,12 +16,11 @@ for (const file of commandFiles) {
 
 client.once('ready', () => {
 	console.log('Ready!');
+	client.user.setActivity('!help | https://animafps.github.io');
 });
 
 
-client.on('message', async message => {
-    client.user.setActivity('!help // Crunching Eggbots and Their Stats');
-
+client.on('message', message => {
     if (!message.content.startsWith(prefix) || message.author.bot) return;
 
 	const args = message.content.slice(prefix.length).trim().split(/ +/);
@@ -57,4 +55,4 @@ client.on('message', async message => {
 
 });
 
-client.login(config.token)
+client.login(config.token);
