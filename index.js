@@ -1,58 +1,65 @@
-const fs = require('fs');
-const Discord = require('discord.js');
-const config = require('./config.json');
+const commando = require('discord.js-commando');
+const path = require('path');
+const oneLine = require('common-tags').oneLine;
+const { ownerID, token, prefix, invite } = require('./src/config.json');
 
-global.Headers = global.Headers || require("fetch-headers");
-
-const client = new Discord.Client();
-client.commands = new Discord.Collection();
-const prefix = '!';
-
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
-for (const file of commandFiles) {
-	const command = require(`./commands/${file}`);
-	client.commands.set(command.name, command);
-}
-
-client.once('ready', () => {
-	console.log('Ready!');
-	client.user.setActivity('!help | https://animafps.github.io');
+const client = new commando.Client({
+  owner: ownerID,
+  commandPrefix: prefix,
+  invite: invite,
 });
 
+client
+  .on('error', console.error)
+  .on('warn', console.warn)
+  .on('debug', console.log)
+  .on('ready', () => {
+    client.user.setActivity('!help | animafps.github.io');
+    console.log(
+      `Client ready; logged in as ${client.user.username}#${client.user.discriminator} (${client.user.id})`
+    );
+  })
+  .on('disconnect', () => {
+    console.warn('Disconnected!');
+  })
+  .on('reconnecting', () => {
+    console.warn('Reconnecting...');
+  })
+  .on('commandError', (cmd, err) => {
+    if (err instanceof commando.FriendlyError) return;
+    console.error(`Error in command ${cmd.groupID}:${cmd.memberName}`, err);
+  })
+  .on('commandBlocked', (msg, reason) => {
+    console.log(oneLine`
+			Command ${msg.command ? `${msg.command.groupID}:${msg.command.memberName}` : ''}
+			blocked; ${reason}
+		`);
+  })
+  .on('commandPrefixChange', (guild, Prefix) => {
+    console.log(oneLine`
+			Prefix ${Prefix === '' ? 'removed' : `changed to ${Prefix || 'the default'}`}
+			${guild ? `in guild ${guild.name} (${guild.id})` : 'globally'}.
+		`);
+  })
+  .on('commandStatusChange', (guild, command, enabled) => {
+    console.log(oneLine`
+			Command ${command.groupID}:${command.memberName}
+			${enabled ? 'enabled' : 'disabled'}
+			${guild ? `in guild ${guild.name} (${guild.id})` : 'globally'}.
+		`);
+  })
+  .on('groupStatusChange', (guild, group, enabled) => {
+    console.log(oneLine`
+			Group ${group.id}
+			${enabled ? 'enabled' : 'disabled'}
+			${guild ? `in guild ${guild.name} (${guild.id})` : 'globally'}.
+		`);
+  });
 
-client.on('message', message => {
-    if (!message.content.startsWith(prefix) || message.author.bot) return;
+client.registry
+  .registerGroup('commands', 'Commands')
+  .registerDefaults()
+  .registerTypesIn(path.join(__dirname, '/src/types'))
+  .registerCommandsIn(path.join(__dirname, '/src/commands'));
 
-	const args = message.content.slice(prefix.length).trim().split(/ +/);
-	const commandName = args.shift().toLowerCase();
-
-	const command = client.commands.get(commandName)
-		|| client.commands.find(cmd => cmd.aliases && cmd.aliases.includes(commandName));
-
-	if (!command) return;
-
-	if (command.guildOnly && message.channel.type === 'dm') {
-		return message.reply('I can\'t execute that command inside DMs!');
-	}
-
-	if (command.args && !args.length) {
-		let reply = `You didn't provide any arguments, ${message.author}!`;
-
-		if (command.usage) {
-			reply += `\nThe proper usage would be: \`${prefix}${command.name} ${command.usage}\``;
-		}
-
-		return message.channel.send(reply);
-	}
-
-	try {
-		command.execute(message, args);
-	} catch (error) {
-		console.error(error);
-		message.reply('there was an error trying to execute that command!');
-	}
-
-
-});
-
-client.login(config.token);
+client.login(token);
